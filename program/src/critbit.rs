@@ -20,6 +20,17 @@ pub type NodeHandle = u32;
 
 #[doc(hidden)]
 pub type IoError = std::io::Error;
+#[cfg(target_arch = "aarch64")]
+#[doc(hidden)]
+#[derive(BorshDeserialize, BorshSerialize, Debug, PartialEq, Clone, Copy, Pod, Zeroable)]
+#[repr(C)]
+pub struct InnerNode {
+    key: u128,
+    prefix_len: u64,
+    pub children: [u32; 2],
+}
+
+#[cfg(not(target_arch = "aarch64"))]
 #[doc(hidden)]
 #[derive(BorshDeserialize, BorshSerialize, Debug, PartialEq, Clone, Copy, Pod, Zeroable)]
 #[repr(C)]
