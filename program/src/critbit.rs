@@ -764,6 +764,7 @@ impl<'a> Slab<'a> {
     /////////////////////////////////////////
     // Misc
 
+    /// attempts to find the NodeHandle for the given search_key
     #[cfg(any(test, feature = "utils"))]
     pub fn find_by_key(&self, search_key: u128) -> Option<NodeHandle> {
         let mut node_handle: NodeHandle = self.root()?;
