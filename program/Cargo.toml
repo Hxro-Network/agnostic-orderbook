@@ -14,7 +14,7 @@ lib = []
 utils = []
 
 [dependencies]
-solana-program = "=1.14.10"
+solana-program = "1.14.10"
 bytemuck = {version = "1.7.2", features= ["derive"]}
 num_enum = "0.5.4"
 base64 = "0.13.0"
