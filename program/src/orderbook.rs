@@ -7,6 +7,7 @@ use crate::{
 };
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::{account_info::AccountInfo, msg, program_error::ProgramError};
+use crate::state::CompletedReason;
 
 #[derive(BorshSerialize, BorshDeserialize, Debug)]
 /// This struct is written back into the event queue's register after new_order or cancel_order.
@@ -109,6 +110,7 @@ impl<'ob> OrderBookState<'ob> {
         // New bid
         let mut crossed = true;
         let callback_id_len = self.callback_id_len;
+        let new_leaf_order_id = event_queue.gen_order_id(limit_price, side);
         loop {
             if match_limit == 0 {
                 break;
@@ -130,7 +132,7 @@ impl<'ob> OrderBookState<'ob> {
                 .to_owned();
 
             let trade_price = best_bo_ref.price();
-            crossed = match side {
+             crossed = match side {
                 Side::Bid => limit_price >= trade_price,
                 Side::Ask => limit_price <= trade_price,
             };
@@ -211,6 +213,7 @@ impl<'ob> OrderBookState<'ob> {
                     }
                     assert!(self_trade_behavior == SelfTradeBehavior::CancelProvide);
                     let provide_out = Event::Out {
+                        reason: CompletedReason::SelfTradeCancel,
                         delete: true,
                         side: side.opposite(),
                         order_id: best_offer_id,
@@ -265,6 +268,7 @@ impl<'ob> OrderBookState<'ob> {
                         .get_callback_info(best_bo_ref.callback_info_pt as usize)
                         .to_owned(),
                     delete: true,
+                    reason: CompletedReason::Filled,
                 };
 
                 self.get_tree(cur_side)
@@ -287,15 +291,35 @@ impl<'ob> OrderBookState<'ob> {
         );
 
         if crossed || !post_allowed || base_qty_to_post < min_base_order_size {
+            let out_reason = if base_qty_to_post < min_base_order_size {
+                CompletedReason::Filled
+            } else if crossed {
+                CompletedReason::MatchLimitExhausted
+            } else {
+                CompletedReason::PostNotAllowed
+            };
+
+            let out_event = Event::Out {
+                side: side,
+                order_id: new_leaf_order_id,
+                base_size: 0,
+                callback_info: callback_info,
+                delete: true,
+                reason: out_reason,
+            };
+
+            event_queue
+                .push_back(out_event)
+                .map_err(|_| AoError::EventQueueFull)?;
+
             return Ok(OrderSummary {
-                posted_order_id: None,
+                posted_order_id: Some(new_leaf_order_id),
                 total_base_qty: max_base_qty - base_qty_remaining,
                 total_quote_qty: max_quote_qty - quote_qty_remaining,
                 total_base_qty_posted: 0,
             });
         }
 
-        let new_leaf_order_id = event_queue.gen_order_id(limit_price, side);
         let callback_info_offset = self
             .get_tree(side)
             .write_callback_info(&callback_info)
@@ -317,6 +341,7 @@ impl<'ob> OrderBookState<'ob> {
             let out = Event::Out {
                 side,
                 delete: true,
+                reason: CompletedReason::Booted,
                 order_id: l.order_id(),
                 base_size: l.base_quantity,
                 callback_info,
