@@ -132,7 +132,7 @@ impl<'ob> OrderBookState<'ob> {
                 .to_owned();
 
             let trade_price = best_bo_ref.price();
-             crossed = match side {
+            crossed = match side {
                 Side::Bid => limit_price >= trade_price,
                 Side::Ask => limit_price <= trade_price,
             };
@@ -294,7 +294,11 @@ impl<'ob> OrderBookState<'ob> {
             let out_reason = if base_qty_to_post < min_base_order_size {
                 CompletedReason::Filled
             } else if crossed {
-                CompletedReason::MatchLimitExhausted
+                if match_limit == 0 {
+                    CompletedReason::MatchLimitExhausted
+                } else {
+                    CompletedReason::PostOnly
+                }
             } else {
                 CompletedReason::PostNotAllowed
             };

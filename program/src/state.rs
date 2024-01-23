@@ -151,6 +151,7 @@ pub enum CompletedReason {
     SelfTradeCancel,
     PostNotAllowed,
     MatchLimitExhausted,
+    PostOnly,
 }
 
 ////////////////////////////////////////////////////
