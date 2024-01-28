@@ -131,29 +131,6 @@ impl MarketState {
     }
 }
 
-#[derive(
-    BorshDeserialize,
-    BorshSerialize,
-    Clone,
-    Copy,
-    PartialEq,
-    FromPrimitive,
-    ToPrimitive,
-    Debug,
-    BorshSize,
-)]
-#[repr(u8)]
-#[allow(missing_docs)]
-pub enum CompletedReason {
-    Cancelled,
-    Filled,
-    Booted,
-    SelfTradeCancel,
-    PostNotAllowed,
-    MatchLimitExhausted,
-    PostOnly,
-}
-
 ////////////////////////////////////////////////////
 // Events
 #[derive(BorshDeserialize, BorshSerialize, Debug)]
@@ -186,8 +163,6 @@ pub enum Event {
         delete: bool,
         #[allow(missing_docs)]
         callback_info: Vec<u8>,
-        #[allow(missing_docs)]
-        reason: CompletedReason,
     },
 }
 
@@ -217,7 +192,6 @@ impl Event {
                 base_size,
                 delete,
                 callback_info,
-                reason,
             } => {
                 writer.write_all(&[1])?;
                 writer.write_all(&[side.to_u8().unwrap()])?;
@@ -225,7 +199,6 @@ impl Event {
                 writer.write_all(&base_size.to_le_bytes())?;
                 writer.write_all(&[(*delete as u8)])?;
                 writer.write_all(callback_info)?;
-                writer.write_all(&[reason.to_u8().unwrap()])?;
             }
         };
         Ok(())
@@ -249,7 +222,6 @@ impl Event {
                 base_size: u64::from_le_bytes(buf[18..26].try_into().unwrap()),
                 delete: buf[26] == 1,
                 callback_info: buf[27..27 + callback_info_len].to_owned(),
-                reason: CompletedReason::from_u8(buf[27 + callback_info_len]).unwrap(),
             },
             _ => unreachable!(),
         }
@@ -403,6 +375,51 @@ impl<'a> EventQueue<'a> {
         let mut queue_event_data =
             &mut self.buffer.borrow_mut()[offset..offset + (self.header.event_size as usize)];
         event.serialize(&mut queue_event_data).unwrap();
+
+        match event {
+            Event::Fill {
+                taker_side,
+                maker_order_id,
+                quote_size,
+                base_size,
+                maker_callback_info,
+                taker_callback_info,
+            } => {
+                let maker_callback_info_b64 = base64::encode(&maker_callback_info);
+                let taker_callback_info_b64 = base64::encode(&taker_callback_info);
+                msg!(
+                    "Wrote Fill Event [taker_side: {} maker_order_id: {} quote_size: {} \
+                        base_size: {} maker_callback_info: {} taker_callback_info: {}]",
+                    if taker_side == Side::Bid {
+                        "bid"
+                    } else {
+                        "ask"
+                    },
+                    maker_order_id,
+                    quote_size,
+                    base_size,
+                    maker_callback_info_b64,
+                    taker_callback_info_b64,
+                );
+            }
+            Event::Out {
+                side,
+                order_id,
+                base_size,
+                callback_info,
+                delete,
+            } => {
+                let callback_info_b64 = base64::encode(&callback_info);
+                msg!(
+                    "Wrote Out Event [side: {} order_id: {} base_size: {} delete: {} callback_info: {}]",
+                    if side == Side::Bid { "bid" } else { "ask" },
+                    order_id,
+                    base_size,
+                    delete,
+                    callback_info_b64,
+                );
+            }
+        }
 
         self.header.count += 1;
         self.header.seq_num += 1;
