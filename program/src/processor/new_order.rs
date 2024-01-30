@@ -149,7 +149,6 @@ pub fn process<'a, 'b: 'a>(
 
     let order_summary =
         order_book.new_order(params, &mut event_queue, market_state.min_base_order_size)?;
-    msg!("Order summary : {:?}", order_summary);
     event_queue.write_to_register(order_summary);
 
     let mut event_queue_header_data: &mut [u8] = &mut accounts.event_queue.data.borrow_mut();
