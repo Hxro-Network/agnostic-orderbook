@@ -18,6 +18,7 @@ use crate::{
     },
     utils::{check_account_key, check_account_owner, check_signer, fp32_mul},
 };
+use crate::state::CompletedReason;
 
 #[derive(BorshDeserialize, BorshSerialize, Clone, BorshSize)]
 /**
@@ -125,6 +126,7 @@ pub fn process<'a, 'b: 'a>(
         base_size: 0,
         callback_info,
         delete: true,
+        reason: CompletedReason::Cancelled,
     };
 
     event_queue
