@@ -28,11 +28,11 @@ impl Processor {
         accounts: &[AccountInfo],
         instruction_data: &[u8],
     ) -> ProgramResult {
-        msg!("Beginning processing");
+        // msg!("Beginning processing");
         let instruction = FromPrimitive::from_u8(instruction_data[0])
             .ok_or(ProgramError::InvalidInstructionData)?;
         let instruction_data = &instruction_data[1..];
-        msg!("Instruction unpacked");
+        // msg!("Instruction unpacked");
 
         match instruction {
             AgnosticOrderbookInstruction::CreateMarket => {
@@ -43,7 +43,7 @@ impl Processor {
                 create_market::process(program_id, accounts, params)?;
             }
             AgnosticOrderbookInstruction::NewOrder => {
-                msg!("Instruction: New Order");
+                // msg!("Instruction: New Order");
                 let accounts = new_order::Accounts::parse(accounts)?;
                 let params = new_order::Params::try_from_slice(instruction_data)
                     .map_err(|_| ProgramError::InvalidInstructionData)?;
@@ -57,7 +57,7 @@ impl Processor {
                 consume_events::process(program_id, accounts, params)?;
             }
             AgnosticOrderbookInstruction::CancelOrder => {
-                msg!("Instruction: Cancel Order");
+                // msg!("Instruction: Cancel Order");
                 let accounts = cancel_order::Accounts::parse(accounts)?;
                 let params = cancel_order::Params::try_from_slice(instruction_data)
                     .map_err(|_| ProgramError::InvalidInstructionData)?;
