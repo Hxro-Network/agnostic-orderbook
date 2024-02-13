@@ -160,15 +160,15 @@ pub fn process<'a, 'b: 'a>(
 
     //Verify that fees were transfered. Fees are expected to be transfered by the caller program in order
     // to reduce the CPI call stack depth.
-    if accounts.market.lamports() - market_state.initial_lamports
-        < market_state
-            .fee_budget
-            .checked_add(market_state.cranker_reward)
-            .unwrap()
-    {
-        msg!("Fees were not correctly payed during caller runtime.");
-        return Err(AoError::FeeNotPayed.into());
-    }
+    // if accounts.market.lamports() - market_state.initial_lamports
+    //     < market_state
+    //         .fee_budget
+    //         .checked_add(market_state.cranker_reward)
+    //         .unwrap()
+    // {
+    //     msg!("Fees were not correctly payed during caller runtime.");
+    //     return Err(AoError::FeeNotPayed.into());
+    // }
     market_state.fee_budget = accounts.market.lamports() - market_state.initial_lamports;
 
     Ok(())
