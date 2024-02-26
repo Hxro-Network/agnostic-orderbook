@@ -27,7 +27,8 @@ The required arguments for a cancel_order instruction.
 pub struct Params {
     /// The order id is a unique identifier for a particular order
     pub order_id: u128,
-    pub fill_pending: bool,
+    pub emit_out: bool,
+    pub emit_size: bool,
 }
 
 /// The required accounts for a cancel_order instruction.
@@ -121,11 +122,11 @@ pub fn process<'a, 'b: 'a>(
     let total_base_qty = leaf_node.base_quantity;
     let total_quote_qty = fp32_mul(leaf_node.base_quantity, leaf_node.price());
 
-    if params.fill_pending {
+    if params.emit_out {
         let out_event = Event::Out {
             side,
             order_id: params.order_id,
-            base_size: 0,
+            base_size: if params.emit_size { total_base_qty } else { 0 },
             callback_info,
             delete: true,
             reason: CompletedReason::Cancelled,
