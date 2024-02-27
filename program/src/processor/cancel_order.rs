@@ -27,6 +27,8 @@ The required arguments for a cancel_order instruction.
 pub struct Params {
     /// The order id is a unique identifier for a particular order
     pub order_id: u128,
+    pub emit_out: bool,
+    pub emit_size: bool,
 }
 
 /// The required accounts for a cancel_order instruction.
@@ -120,18 +122,26 @@ pub fn process<'a, 'b: 'a>(
     let total_base_qty = leaf_node.base_quantity;
     let total_quote_qty = fp32_mul(leaf_node.base_quantity, leaf_node.price());
 
-    let out_event = Event::Out {
-        side,
-        order_id: params.order_id,
-        base_size: 0,
-        callback_info,
-        delete: true,
-        reason: CompletedReason::Cancelled,
-    };
+    if params.emit_out {
+        let out_event = Event::Out {
+            side,
+            order_id: params.order_id,
+            base_size: if params.emit_size { total_base_qty } else { 0 },
+            callback_info,
+            delete: true,
+            reason: CompletedReason::Cancelled,
+        };
 
-    event_queue
-        .push_back(out_event)
-        .map_err(|_| AoError::EventQueueFull)?;
+        event_queue
+            .push_back(out_event)
+            .map_err(|_| AoError::EventQueueFull)?;
+
+        let mut event_queue_header_data: &mut [u8] = &mut accounts.event_queue.data.borrow_mut();
+        event_queue
+            .header
+            .serialize(&mut event_queue_header_data)
+            .unwrap();
+    }
 
     let order_summary = OrderSummary {
         posted_order_id: None,
@@ -142,11 +152,6 @@ pub fn process<'a, 'b: 'a>(
 
     event_queue.write_to_register(order_summary);
 
-    let mut event_queue_header_data: &mut [u8] = &mut accounts.event_queue.data.borrow_mut();
-    event_queue
-        .header
-        .serialize(&mut event_queue_header_data)
-        .unwrap();
     order_book.commit_changes();
 
     Ok(())
