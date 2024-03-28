@@ -43,8 +43,10 @@ impl InnerNode {
 pub struct LeafNode {
     /// The key is the associated order id
     pub key: u128,
+    /// If non-zero, the slot at which point the order will expire
+    pub expiration_slot: u32,
     /// A pointer into the underlying Slab to retrieve the node's associated callback info. The [`Slab::get_callback_info`] method can be used.
-    pub callback_info_pt: u64,
+    pub callback_info_pt: u32,
     /// The quantity of base asset associated with the underlying order
     pub base_quantity: u64,
 }

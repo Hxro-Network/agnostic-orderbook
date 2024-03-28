@@ -152,6 +152,7 @@ pub enum CompletedReason {
     PostNotAllowed,
     MatchLimitExhausted,
     PostOnly,
+    Expired,
 }
 
 ////////////////////////////////////////////////////
