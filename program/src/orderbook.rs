@@ -114,8 +114,9 @@ impl<'ob> OrderBookState<'ob> {
         let callback_id_len = self.callback_id_len;
         let new_leaf_order_id = event_queue.gen_order_id(limit_price, side);
         let clock = Clock::get().map_err(|_| AoError::ClockFailed)?;
+        let new_order_has_expired = expiration_slot != 0 && expiration_slot as u64 <= clock.slot;
         loop {
-            if match_limit == 0 {
+            if match_limit == 0 || new_order_has_expired {
                 break;
             }
             let best_bo_h = match self.find_bbo(side.opposite()) {
@@ -160,6 +161,8 @@ impl<'ob> OrderBookState<'ob> {
                 self.get_tree(side.opposite())
                     .remove_by_key(best_offer_id)
                     .unwrap();
+
+                match_limit -= 1;
 
                 continue;
             }
@@ -317,9 +320,11 @@ impl<'ob> OrderBookState<'ob> {
             base_qty_remaining,
         );
 
-        if crossed || !post_allowed || base_qty_to_post < min_base_order_size {
+        if crossed || !post_allowed || base_qty_to_post < min_base_order_size || new_order_has_expired {
             let out_reason = if base_qty_to_post < min_base_order_size {
                 CompletedReason::Filled
+            } else if new_order_has_expired {
+                CompletedReason::Expired
             } else if crossed {
                 if match_limit == 0 {
                     CompletedReason::MatchLimitExhausted
