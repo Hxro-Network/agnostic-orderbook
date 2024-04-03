@@ -303,6 +303,18 @@ impl<'ob> OrderBookState<'ob> {
                 CompletedReason::PostNotAllowed
             };
 
+            match out_reason {
+                CompletedReason::PostOnly => {
+                    return Ok(OrderSummary {
+                        posted_order_id: None,
+                        total_base_qty: max_base_qty - base_qty_remaining,
+                        total_quote_qty: max_quote_qty - quote_qty_remaining,
+                        total_base_qty_posted: 0,
+                    });
+                }
+                _ => {}
+            }
+
             let out_event = Event::Out {
                 side: side,
                 order_id: new_leaf_order_id,
