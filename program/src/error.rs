@@ -52,6 +52,8 @@ pub enum AoError {
     IllegalMsrmOwner,
     #[error("Limit price must be a tick size multiple")]
     InvalidLimitPrice,
+    #[error("Failed to get the clock")]
+    ClockFailed,
 }
 
 impl From<AoError> for ProgramError {

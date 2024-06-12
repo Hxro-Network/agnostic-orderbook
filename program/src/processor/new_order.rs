@@ -50,6 +50,8 @@ pub struct Params {
     pub post_allowed: bool,
     /// Describes what would happen if this order was matched against an order with an equal `callback_info` field.
     pub self_trade_behavior: SelfTradeBehavior,
+    /// If non-zero, the slot at which point the order will expire
+    pub expiration_slot: u32,
 }
 
 /// The required accounts for a new_order instruction.

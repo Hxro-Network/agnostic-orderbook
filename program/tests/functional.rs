@@ -150,6 +150,7 @@ async fn test_agnostic_orderbook() {
             post_allowed: true,
             self_trade_behavior: SelfTradeBehavior::CancelProvide,
             match_limit: 3,
+            expiration_slot: 0,
         },
     );
     sign_send_instructions(
@@ -193,6 +194,7 @@ async fn test_agnostic_orderbook() {
             post_allowed: true,
             self_trade_behavior: SelfTradeBehavior::CancelProvide,
             match_limit: 3,
+            expiration_slot: 0,
         },
     );
     sign_send_instructions(

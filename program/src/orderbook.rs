@@ -7,6 +7,7 @@ use crate::{
 };
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::{account_info::AccountInfo, msg, program_error::ProgramError};
+use solana_program::sysvar::{clock::Clock, Sysvar};
 use crate::state::CompletedReason;
 
 #[derive(BorshSerialize, BorshDeserialize, Debug)]
@@ -102,6 +103,7 @@ impl<'ob> OrderBookState<'ob> {
             post_allowed,
             self_trade_behavior,
             mut match_limit,
+            expiration_slot,
         } = params;
 
         let mut base_qty_remaining = max_base_qty;
@@ -111,8 +113,10 @@ impl<'ob> OrderBookState<'ob> {
         let mut crossed = true;
         let callback_id_len = self.callback_id_len;
         let new_leaf_order_id = event_queue.gen_order_id(limit_price, side);
+        let clock = Clock::get().map_err(|_| AoError::ClockFailed)?;
+        let new_order_has_expired = expiration_slot != 0 && expiration_slot as u64 <= clock.slot;
         loop {
-            if match_limit == 0 {
+            if match_limit == 0 || new_order_has_expired {
                 break;
             }
             let best_bo_h = match self.find_bbo(side.opposite()) {
@@ -136,6 +140,32 @@ impl<'ob> OrderBookState<'ob> {
                 Side::Bid => limit_price >= trade_price,
                 Side::Ask => limit_price <= trade_price,
             };
+
+            if best_bo_ref.expiration_slot != 0 && clock.slot >= best_bo_ref.expiration_slot as u64 {
+                let best_offer_id = best_bo_ref.order_id();
+                let expire_out = Event::Out {
+                    reason: CompletedReason::Expired,
+                    delete: true,
+                    side: side.opposite(),
+                    order_id: best_offer_id,
+                    base_size: best_bo_ref.base_quantity,
+                    callback_info: self
+                        .get_tree(side.opposite())
+                        .get_callback_info(best_bo_ref.callback_info_pt as usize)
+                        .to_owned(),
+                };
+                event_queue
+                    .push_back(expire_out)
+                    .map_err(|_| AoError::EventQueueFull)?;
+
+                self.get_tree(side.opposite())
+                    .remove_by_key(best_offer_id)
+                    .unwrap();
+
+                match_limit -= 1;
+
+                continue;
+            }
 
             if post_only || !crossed {
                 break;
@@ -290,9 +320,11 @@ impl<'ob> OrderBookState<'ob> {
             base_qty_remaining,
         );
 
-        if crossed || !post_allowed || base_qty_to_post < min_base_order_size {
+        if crossed || !post_allowed || base_qty_to_post < min_base_order_size || new_order_has_expired {
             let out_reason = if base_qty_to_post < min_base_order_size {
                 CompletedReason::Filled
+            } else if new_order_has_expired {
+                CompletedReason::Expired
             } else if crossed {
                 if match_limit == 0 {
                     CompletedReason::MatchLimitExhausted
@@ -342,7 +374,8 @@ impl<'ob> OrderBookState<'ob> {
             .unwrap();
         let new_leaf = Node::Leaf(LeafNode {
             key: new_leaf_order_id,
-            callback_info_pt: callback_info_offset,
+            expiration_slot,
+            callback_info_pt: callback_info_offset as u32,
             base_quantity: base_qty_to_post,
         });
         let insert_result = self.get_tree(side).insert_leaf(&new_leaf);
